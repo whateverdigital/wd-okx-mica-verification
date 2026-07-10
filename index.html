@@ -4,13 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MiCA Multi-Chain USDC Verification</title>
-  
-  <!-- Load ultra-stable, native Web3 Onboard modules for multi-chain wallet pairing -->
-  <script src="https://unpkg.com"></script>
-  <script src="https://unpkg.com"></script>
-  <script src="https://unpkg.com"></script>
-  <script src="https://cloudflare.com"></script>
-  
   <style>
     body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #f4f6f9; color: #333; margin: 0; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
     .container { background: #ffffff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); padding: 30px; max-width: 450px; width: 100%; text-align: center; }
@@ -25,13 +18,18 @@
     .status { margin-top: 15px; font-weight: 600; font-size: 14px; padding: 10px; border-radius: 6px; display: none; }
     .success { background-color: #dcfce7; color: #15803d; }
     .error { background-color: #fee2e2; color: #b91c1c; }
+    
+    /* Overlay fallback for non-extension users */
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); justify-content: center; align-items: center; z-index: 1000; }
+    .modal-card { background: white; padding: 25px; border-radius: 12px; max-width: 380px; width: 90%; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+    .modal-card p { font-size: 13px; color: #666; margin-bottom: 20px; }
   </style>
 </head>
 <body>
 
 <div class="container">
-  <h2>USDC3 Wallet Verification</h2>
-  <p>To comply with EU MiCA/TFR rules, please verify your wallet ownership using any mobile crypto wallet. This process is secure and completely free.</p>
+  <h2>USDC4 Wallet Verification</h2>
+  <p>To comply with EU MiCA/TFR rules for payouts <strong>above €1,000</strong>, please verify your wallet ownership. Choose your network below to sign a free, secure verification message.</p>
   
   <div class="input-group">
     <label for="kolName">Your Name / Channel Name</label>
@@ -53,46 +51,41 @@
   <div id="statusBox" class="status"></div>
 </div>
 
+<!-- Fallback QR/Mobile Wallet Trigger Instructions Modal -->
+<div id="walletModal" class="modal-overlay">
+  <div class="modal-card">
+    <h3 style="color: #1e3a8a; margin-top: 0;">Mobile Wallet Direct Link</h3>
+    <p>If your desktop extension didn't pop open automatically, or if you are testing on a mobile device, use this option to open your app natively:</p>
+    <button class="btn" style="background-color: #10b981;" onclick="openMobileDeepLink()">Open Native Mobile Wallet</button>
+    <button class="btn" style="background-color: #64748b; margin-top: 10px;" onclick="closeModal()">Cancel</button>
+  </div>
+</div>
+
 <script>
 // ==================== CONFIGURATION ====================
-// ACTIVE GOOGLE SHEET BACKEND API ENDPOINT URL:
 const GOOGLE_SCRIPT_URL = "https://google.com";
 // ========================================================
-
-let onboardInstance = null;
-
-function initOnboard() {
-  if (onboardInstance) return onboardInstance;
-
-  const injected = window.injectedWallets.default();
-  const walletConnect = window.walletConnect.default({
-    projectId: 'c4a7e93736780c850787e9eb0ef6e384',
-    requiredChains: [1],
-    optionalChains: [137, 42161, 8453]
-  });
-
-  onboardInstance = window.web3OnboardCore.default({
-    wallets: [injected, walletConnect],
-    chains: [
-      { id: '0x1', token: 'ETH', label: 'Ethereum', rpcUrl: 'https://cloudflare-eth.com' },
-      { id: '0x89', token: 'MATIC', label: 'Polygon', rpcUrl: 'https://polygon-rpc.com' },
-      { id: '0xa4b1', token: 'ETH', label: 'Arbitrum', rpcUrl: 'https://arbitrum.io' },
-      { id: '0x2105', token: 'ETH', label: 'Base', rpcUrl: 'https://base.org' }
-    ],
-    appMetadata: {
-      name: 'MiCA Compliance Dashboard',
-      description: 'USDC Payout Verification Portal'
-    }
-  });
-
-  return onboardInstance;
-}
 
 function showStatus(msg, type) {
   const statusBox = document.getElementById('statusBox');
   statusBox.innerText = msg;
   statusBox.className = "status " + type;
   statusBox.style.display = "block";
+}
+
+function toHex(str) {
+  return "0x" + Array.from(str).map(c => c.charCodeAt(0).toString(16).padStart(2, '0')).join('');
+}
+
+function openMobileDeepLink() {
+  // Triggers MetaMask mobile browser environment deep link string
+  const currentUrl = window.location.href.replace('https://', '');
+  window.location.href = "https://app.link" + currentUrl;
+}
+
+function closeModal() {
+  document.getElementById('walletModal').style.display = 'none';
+  document.getElementById('connectBtn').disabled = false;
 }
 
 async function startVerification() {
@@ -104,38 +97,36 @@ async function startVerification() {
     showStatus("Please enter your name or channel before verifying.", "error");
     return;
   }
-  if (GOOGLE_SCRIPT_URL.includes("YOUR_GOOGLE")) {
-    showStatus("Configuration Error: Please update GOOGLE_SCRIPT_URL target.", "error");
+
+  connectBtn.disabled = true;
+
+  // Detect if an injected Web3 provider is missing (like MetaMask or Coinbase Wallet extension)
+  if (typeof window.ethereum === 'undefined') {
+    // Open the user fallback overlay module instead of breaking the script
+    document.getElementById('walletModal').style.display = 'flex';
+    showStatus("Extension missing. Use the direct mobile link option if you are on a smartphone.", "error");
     return;
   }
 
   try {
-    connectBtn.disabled = true;
-    showStatus("Opening secure wallet selector layout...", "success");
-
-    const onboard = initOnboard();
-    const wallets = await onboard.connectWallet();
+    showStatus("Connecting to wallet...", "success");
     
-    if (wallets.length === 0) {
-      showStatus("Connection canceled by user.", "error");
-      connectBtn.disabled = false;
-      return;
-    }
+    // Connect directly to the browser's native wallet interface
+    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+    const walletAddress = accounts[0];
 
-    const connectedWallet = wallets[0];
-    const walletAddress = connectedWallet.accounts[0].address;
-    const provider = new ethers.providers.Web3Provider(connectedWallet.provider);
-    const signer = provider.getSigner();
-
-    // Create secure compliance message statement
     const msgToSign = `MiCA Compliance Verification\nI confirm that I own and control the wallet address for USDC payouts: ${walletAddress}\nAuthorized by: ${kolName}`;
+    const hexMessage = toHex(msgToSign);
     
-    showStatus("Connected! Please tap 'Sign Message' inside your phone or extension wallet...", "success");
-    const signature = await signer.signMessage(msgToSign);
+    showStatus("Please sign the authentication message inside your wallet interface...", "success");
+    
+    const signature = await window.ethereum.request({
+      method: 'personal_sign',
+      params: [hexMessage, walletAddress]
+    });
 
-    showStatus("Signature validated. Sending verification to Google Sheet...", "success");
+    showStatus("Signature authorized. Sending to Google Sheets...", "success");
 
-    // Push data packet directly to Google Web App Endpoint
     await fetch(GOOGLE_SCRIPT_URL, {
       method: "POST",
       mode: "no-cors", 
@@ -150,7 +141,6 @@ async function startVerification() {
 
     showStatus(`Success! Your ${selectedNetwork} wallet was securely logged under MiCA rules.`, "success");
     connectBtn.innerText = "Verified ✅";
-    onboard.disconnectWallet({ label: connectedWallet.label });
 
   } catch (error) {
     showStatus("Verification failed: " + (error.message || error), "error");
