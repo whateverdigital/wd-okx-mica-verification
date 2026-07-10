@@ -74,12 +74,34 @@ function initWalletModal() {
   };
 
   // Configure target verification networks for your USDC selections
+  // Fixed network configuration mapping for the UMD layer
   const chains = [
-    window.Web3ModalEthers5.Mainnet,
-    window.Web3ModalEthers5.Polygon,
-    window.Web3ModalEthers5.Arbitrum,
-    window.Web3ModalEthers5.Base
+    {
+      rpcUrl: 'https://cloudflare-eth.com',
+      chainId: 1,
+      name: 'Ethereum',
+      currency: 'ETH'
+    },
+    {
+      rpcUrl: 'https://polygon-rpc.com',
+      chainId: 137,
+      name: 'Polygon',
+      currency: 'MAT_IC'
+    },
+    {
+      rpcUrl: 'https://arbitrum.io',
+      chainId: 42161,
+      name: 'Arbitrum',
+      currency: 'ETH'
+    },
+    {
+      rpcUrl: 'https://base.org',
+      chainId: 8453,
+      name: 'Base',
+      currency: 'ETH'
+    }
   ];
+
 
   modalInstance = window.Web3ModalEthers5.createWeb3Modal({
     ethersConfig: window.Web3ModalEthers5.defaultEthersConfig({ metadata: mainnetMetadata }),
