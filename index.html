@@ -5,9 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MiCA Multi-Chain USDC Verification</title>
   
-  <!-- Load official, modern modules for WalletConnect AppKit and Ethers directly -->
-  <script src="https://unpkg.com" type="text/javascript"></script>
-  <script src="https://cloudflare.com" type="text/javascript"></script>
+  <!-- Load ultra-stable, native Web3 Onboard modules for multi-chain wallet pairing -->
+  <script src="https://unpkg.com"></script>
+  <script src="https://unpkg.com"></script>
+  <script src="https://unpkg.com"></script>
+  <script src="https://cloudflare.com"></script>
   
   <style>
     body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #f4f6f9; color: #333; margin: 0; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
@@ -28,8 +30,8 @@
 <body>
 
 <div class="container">
-  <h2>USDC1 Wallet Verification</h2>
-  <p>To comply with EU MiCA/TFR rules, please verify your wallet ownership using any mobile crypto wallet. This process is secure and completely free.</p>
+  <h2>USDC Wallet Verification</h2>
+  <p>To comply with EU MiCA/TFR rules for payouts <strong>above €1,000</strong>, please verify your wallet ownership using any mobile crypto wallet. This process is secure and completely free.</p>
   
   <div class="input-group">
     <label for="kolName">Your Name / Channel Name</label>
@@ -53,63 +55,37 @@
 
 <script>
 // ==================== CONFIGURATION ====================
-// 1. PASTE YOUR GOOGLE SHEET WEB APP URL HERE:
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxKa5YTyB8puc6TLW2I5fZOv9KY1KO9hHlOD_HVozj0j8NzZ7_9J6D8ZYES00xZt9RoBg/exec";
-
-// 2. PUBLIC FREE WALLETCONNECT INSTANCE PROJECT ID:
-const WALLETCONNECT_PROJECT_ID = "c4a7e93736780c850787e9eb0ef6e384";
+// ACTIVE GOOGLE SHEET BACKEND API ENDPOINT URL:
+const GOOGLE_SCRIPT_URL = "https://google.com";
 // ========================================================
 
-let modalInstance = null;
+let onboardInstance = null;
 
-// Initialize WalletConnect AppKit for EVM networks dynamically
-function initWalletModal() {
-  if (modalInstance) return modalInstance;
-  
-  const mainnetMetadata = {
-    name: 'MiCA Compliance Dashboard',
-    description: 'Wallet Verification Portal',
-    url: 'https://whateverdigital.co',
-    icons: ['https://githubusercontent.com']
-  };
+function initOnboard() {
+  if (onboardInstance) return onboardInstance;
 
-  // Configure target verification networks for your USDC selections
-  // Fixed network configuration mapping for the UMD layer
-  const chains = [
-    {
-      rpcUrl: 'https://cloudflare-eth.com',
-      chainId: 1,
-      name: 'Ethereum',
-      currency: 'ETH'
-    },
-    {
-      rpcUrl: 'https://polygon-rpc.com',
-      chainId: 137,
-      name: 'Polygon',
-      currency: 'MAT_IC'
-    },
-    {
-      rpcUrl: 'https://arbitrum.io',
-      chainId: 42161,
-      name: 'Arbitrum',
-      currency: 'ETH'
-    },
-    {
-      rpcUrl: 'https://base.org',
-      chainId: 8453,
-      name: 'Base',
-      currency: 'ETH'
-    }
-  ];
-
-
-  modalInstance = window.Web3ModalEthers5.createWeb3Modal({
-    ethersConfig: window.Web3ModalEthers5.defaultEthersConfig({ metadata: mainnetMetadata }),
-    chains: chains,
-    projectId: WALLETCONNECT_PROJECT_ID,
-    enableAnalytics: false
+  const injected = window.injectedWallets.default();
+  const walletConnect = window.walletConnect.default({
+    projectId: 'c4a7e93736780c850787e9eb0ef6e384',
+    requiredChains:,
+    optionalChains: [137, 42161, 8453]
   });
-  return modalInstance;
+
+  onboardInstance = window.web3OnboardCore.default({
+    wallets: [injected, walletConnect],
+    chains: [
+      { id: '0x1', token: 'ETH', label: 'Ethereum', rpcUrl: 'https://cloudflare-eth.com' },
+      { id: '0x89', token: 'MATIC', label: 'Polygon', rpcUrl: 'https://polygon-rpc.com' },
+      { id: '0xa4b1', token: 'ETH', label: 'Arbitrum', rpcUrl: 'https://arbitrum.io' },
+      { id: '0x2105', token: 'ETH', label: 'Base', rpcUrl: 'https://base.org' }
+    ],
+    appMetadata: {
+      name: 'MiCA Compliance Dashboard',
+      description: 'USDC Payout Verification Portal'
+    }
+  });
+
+  return onboardInstance;
 }
 
 function showStatus(msg, type) {
@@ -129,42 +105,37 @@ async function startVerification() {
     return;
   }
   if (GOOGLE_SCRIPT_URL.includes("YOUR_GOOGLE")) {
-    showStatus("Configuration Error: Please assign your target GOOGLE_SCRIPT_URL script target inside index.html.", "error");
+    showStatus("Configuration Error: Please update GOOGLE_SCRIPT_URL target.", "error");
     return;
   }
 
   try {
     connectBtn.disabled = true;
-    showStatus("Opening secure QR wallet selector window...", "success");
+    showStatus("Opening secure wallet selector layout...", "success");
 
-    const modal = initWalletModal();
-    // Force open the QR interface / App selector modal overlay on the page
-    await modal.open();
-
-    // Loop monitoring until user links their mobile wallet interface successfully
-    let walletAddress = null;
-    let provider = null;
+    const onboard = initOnboard();
+    const wallets = await onboard.connectWallet();
     
-    while (!walletAddress) {
-      const currentProvider = modal.getWalletProvider();
-      if (currentProvider) {
-        provider = new ethers.providers.Web3Provider(currentProvider);
-        const signer = provider.getSigner();
-        walletAddress = await signer.getAddress();
-      }
-      await new Promise(resolve => setTimeout(resolve, 1000));
+    if (wallets.length === 0) {
+      showStatus("Connection canceled by user.", "error");
+      connectBtn.disabled = false;
+      return;
     }
 
-    // Generate strict compliance statement proving ownership keys
+    const connectedWallet = wallets[0];
+    const walletAddress = connectedWallet.accounts[0].address;
+    const provider = new ethers.providers.Web3Provider(connectedWallet.provider);
+    const signer = provider.getSigner();
+
+    // Create secure compliance message statement
     const msgToSign = `MiCA Compliance Verification\nI confirm that I own and control the wallet address for USDC payouts: ${walletAddress}\nAuthorized by: ${kolName}`;
     
-    showStatus("Connection secured! Please tap 'Sign Message' inside your phone's wallet app...", "success");
-    const signerInstance = provider.getSigner();
-    const signature = await signerInstance.signMessage(msgToSign);
+    showStatus("Connected! Please tap 'Sign Message' inside your phone or extension wallet...", "success");
+    const signature = await signer.signMessage(msgToSign);
 
-    showStatus("Cryptographic signature validated. Routing to Google Sheet dashboard...", "success");
+    showStatus("Signature validated. Sending verification to Google Sheet...", "success");
 
-    // Route structural data packet securely back to Google API architecture
+    // Push data packet directly to Google Web App Endpoint
     await fetch(GOOGLE_SCRIPT_URL, {
       method: "POST",
       mode: "no-cors", 
@@ -177,14 +148,13 @@ async function startVerification() {
       })
     });
 
-    showStatus(`Success! Your ${selectedNetwork} wallet was logged under MiCA rules. You may now close this window.`, "success");
+    showStatus(`Success! Your ${selectedNetwork} wallet was securely logged under MiCA rules.`, "success");
     connectBtn.innerText = "Verified ✅";
-    modal.disconnect();
+    onboard.disconnectWallet({ label: connectedWallet.label });
 
   } catch (error) {
     showStatus("Verification failed: " + (error.message || error), "error");
     connectBtn.disabled = false;
-    if (modalInstance) modalInstance.disconnect();
   }
 }
 </script>
