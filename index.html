@@ -78,10 +78,11 @@ function toHex(str) {
 }
 
 function openMobileDeepLink() {
-  // Triggers MetaMask mobile browser environment deep link string
-  const currentUrl = window.location.href.replace('https://', '');
-  window.location.href = "https://app.link" + currentUrl;
+  // Ultra-stable native MetaMask mobile browser redirect loop
+  const rawUrl = window.location.href.split('://')[1];
+  window.location.href = "https://app.link" + rawUrl;
 }
+
 
 function closeModal() {
   document.getElementById('walletModal').style.display = 'none';
