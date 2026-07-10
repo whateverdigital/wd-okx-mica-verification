@@ -66,12 +66,12 @@ let modalInstance = null;
 function initWalletModal() {
   if (modalInstance) return modalInstance;
   
-  const mainnetMetadata = {
-    name: 'MiCA Compliance Dashboard',
-    description: 'Wallet Verification Portal',
-    url: window.location.origin,
-    icons: ['https://githubusercontent.com']
-  };
+const mainnetMetadata = {
+  name: 'MiCA Compliance Dashboard',
+  description: 'Wallet Verification Portal',
+  url: 'https://whateverdigital.co', // <-- UPDATED FOR YOUR NEW SUBDOMAIN
+  icons: ['https://githubusercontent.com']
+};
 
   // Configure target verification networks for your USDC selections
   const chains =; // Ethereum, Polygon, Arbitrum, Base IDs
